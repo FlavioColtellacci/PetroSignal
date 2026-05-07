@@ -1,4 +1,4 @@
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import { minimaxOpenAI } from "vercel-minimax-ai-provider";
 
@@ -80,27 +80,52 @@ function deriveSourcesFromInput(input: BriefingProviderInput) {
   }));
 }
 
+function extractJsonPayload(raw: string): string {
+  const trimmed = raw.trim();
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fencedMatch?.[1]) {
+    return fencedMatch[1].trim();
+  }
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+  return trimmed;
+}
+
 class MiniMaxBriefingProviderAdapter implements BriefingProviderAdapter {
   async generate(input: BriefingProviderInput): Promise<BriefingProviderResult> {
     const start = Date.now();
-    const model = process.env.MINIMAX_MODEL ?? "MiniMax-M2.7-highspeed";
+    const model = process.env.MINIMAX_MODEL ?? "MiniMax-M2.7";
     const { system, user } = buildInvestorBriefingPrompt(input);
 
-    const { output, usage } = await generateText({
+    const { text, usage } = await generateText({
       model: minimaxOpenAI(model),
       system,
       prompt: user,
-      output: Output.object({ schema: briefingOutputSchema }),
       temperature: 0.3,
       maxRetries: 2,
       abortSignal: AbortSignal.timeout(60_000),
     });
 
+    const jsonPayload = extractJsonPayload(text);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonPayload);
+    } catch (cause) {
+      throw new Error(
+        `MiniMax response was not valid JSON. Raw text (first 300 chars): ${text.slice(0, 300)}`,
+        { cause },
+      );
+    }
+    const validated = briefingOutputSchema.parse(parsed);
+
     return {
       document: {
         role: input.role,
         date: input.date,
-        sections: output.sections,
+        sections: validated.sections,
         sources: deriveSourcesFromInput(input),
         generatedAt: new Date().toISOString(),
       },
