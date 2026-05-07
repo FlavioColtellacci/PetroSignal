@@ -42,9 +42,22 @@ Petroleum intelligence terminal built with Next.js App Router. The codebase now 
 
 ### Firestore env vars (enable Firestore reads/writes)
 
-- `FIREBASE_PROJECT_ID`
-- `FIREBASE_CLIENT_EMAIL`
-- `FIREBASE_PRIVATE_KEY` (preserve escaped newlines as `\n` in `.env.local`)
+- `FIREBASE_PROJECT_ID` — defaults to `petrosignal-dev` for the development project
+- `FIREBASE_CLIENT_EMAIL` — service account email
+- `FIREBASE_PRIVATE_KEY` — service account private key (preserve escaped newlines as `\n` in `.env.local`)
+
+To populate `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY`, generate a service account JSON from the [Firebase console](https://console.firebase.google.com/project/petrosignal-dev/settings/serviceaccounts/adminsdk) and copy the `client_email` and `private_key` fields into `.env.local`.
+
+### Firebase Web SDK env vars (used for client-side Auth)
+
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+
+These are pre-populated in `.env.example` for the development project.
 
 ### Provider env vars (kept for upcoming live adapters)
 
