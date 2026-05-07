@@ -1,0 +1,59 @@
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    --background: #17120e;
+    --foreground: #ece0d9;
+    --card: #201b16;
+    --card-foreground: #ece0d9;
+    --popover: #241f1a;
+    --popover-foreground: #ece0d9;
+    --primary: #fdb87b;
+    --primary-foreground: #4b2700;
+    --secondary: #cac4cd;
+    --secondary-foreground: #322f36;
+    --muted: #3a342f;
+    --muted-foreground: #d6c3b5;
+    --accent: #8ed0eb;
+    --accent-foreground: #003545;
+    --destructive: #ffb4ab;
+    --destructive-foreground: #690005;
+    --border: #51443a;
+    --input: #3a342f;
+    --ring: #fdb87b;
+    --radius: 0;
+    --surface-dim: #17120e;
+    --surface-bright: #3f3833;
+    --surface-container-lowest: #120d09;
+    --surface-container-low: #201b16;
+    --surface-container: #241f1a;
+    --surface-container-high: #2f2924;
+    --surface-container-highest: #3a342f;
+    --outline: #9e8e81;
+    --outline-variant: #51443a;
+    --ui-grid-unit: 4px;
+    --ui-container-padding: 12px;
+    --ui-gutter: 1px;
+    --ui-stack-compact: 4px;
+    --ui-stack-default: 8px;
+  }
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
