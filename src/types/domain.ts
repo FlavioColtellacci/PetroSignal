@@ -66,3 +66,15 @@ export interface AgentStatus {
   lastCheckAt: string;
   note: string;
 }
+
+export type MetricTrend = "up" | "down" | "flat";
+
+export interface MetricSnapshot {
+  id: string;
+  label: string;
+  value: number;
+  unit?: string;
+  delta: number;
+  trend: MetricTrend;
+  capturedAt: string;
+}

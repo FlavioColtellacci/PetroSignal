@@ -3,6 +3,7 @@ import type {
   AlertItem,
   BriefingDocument,
   BriefingRole,
+  MetricSnapshot,
   NewsItem,
 } from "@/types/domain";
 
@@ -205,6 +206,42 @@ const AGENT_STATUS: AgentStatus[] = [
   },
 ];
 
+const METRICS: MetricSnapshot[] = [
+  {
+    id: "metric-active-alerts",
+    label: "Active Alerts",
+    value: 12,
+    delta: 3,
+    trend: "up",
+    capturedAt: "2026-05-07T08:30:00.000Z",
+  },
+  {
+    id: "metric-sources-monitored",
+    label: "Sources Monitored",
+    value: 184,
+    delta: 4,
+    trend: "up",
+    capturedAt: "2026-05-07T08:30:00.000Z",
+  },
+  {
+    id: "metric-jvs-tracked",
+    label: "JVs Tracked",
+    value: 27,
+    delta: 0,
+    trend: "flat",
+    capturedAt: "2026-05-07T08:30:00.000Z",
+  },
+  {
+    id: "metric-sanctions-changes",
+    label: "Sanctions Changes",
+    value: 5,
+    unit: "/7d",
+    delta: -1,
+    trend: "down",
+    capturedAt: "2026-05-07T08:30:00.000Z",
+  },
+];
+
 export function getMockBriefing(role: BriefingRole): BriefingDocument {
   const template = BRIEFING_TEMPLATES[role];
 
@@ -230,4 +267,8 @@ export function getMockNews(): NewsItem[] {
 
 export function getMockAgentStatus(): AgentStatus[] {
   return AGENT_STATUS.map((status) => ({ ...status }));
+}
+
+export function getMockMetrics(): MetricSnapshot[] {
+  return METRICS.map((metric) => ({ ...metric }));
 }
