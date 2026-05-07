@@ -1,6 +1,6 @@
 # PetroSignal
 
-Phase 1 foundation for a petroleum intelligence terminal built with Next.js App Router.
+Petroleum intelligence terminal built with Next.js App Router. The codebase now ships the Phase 2 vertical slice: a sanctions ingestion pipeline and an investor briefing generator backed by Firestore, with provider adapters mock-implemented until external API keys are wired in.
 
 ## Local setup
 
@@ -27,12 +27,31 @@ Phase 1 foundation for a petroleum intelligence terminal built with Next.js App 
 - `/settings` settings scaffold
 - `/pricing` pricing scaffold
 
-## Cron placeholders
+## Phase 2 runtime (Firestore + mock providers)
 
-- `vercel.json` includes placeholders for:
+- `vercel.json` schedules:
   - `/api/cron/ingest`
   - `/api/cron/briefings`
-- Both routes enforce `CRON_SECRET` via `Authorization: Bearer <CRON_SECRET>` and currently return mock-safe JSON.
+- Both routes require `Authorization: Bearer <CRON_SECRET>`.
+- In this slice, provider adapters are mock-backed by default (sanctions ingest + briefing generation), while persistence reads/writes are Firestore-backed when Firebase Admin credentials are present.
+- If Firebase credentials are missing, read APIs gracefully fallback to in-memory mock data and cron routes report `firestoreEnabled: false`.
+
+### Required env vars
+
+- `CRON_SECRET`
+
+### Firestore env vars (enable Firestore reads/writes)
+
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY` (preserve escaped newlines as `\n` in `.env.local`)
+
+### Provider env vars (kept for upcoming live adapters)
+
+- `MINIMAX_API_KEY`
+- `MINIMAX_MODEL`
+- `RESEND_API_KEY`
+- `BRIEFING_FROM_EMAIL`
 
 ## Validation commands
 
@@ -41,10 +60,27 @@ npm run lint
 npm run build
 ```
 
-## Phase 2 migration notes
+## Cron smoke test examples
 
-1. Replace mock repositories with Firestore-backed repositories using the existing domain contracts (`BriefingDocument`, alerts, news, agent status).
-2. Implement live ingestion workers behind `/api/cron/ingest` for sanctions, PDVSA, market, JV, and social signals with deduplication and scoring.
-3. Implement daily MiniMax briefing generation behind `/api/cron/briefings` and persist generated briefing documents to Firestore without changing JSON shape.
-4. Add outbound daily delivery (Resend) using stored briefings and role targeting.
-5. Add pricing enforcement and Stripe-based subscription gating across Free/Professional/Enterprise experiences.
+```bash
+curl -sS -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/ingest
+curl -sS -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/briefings
+```
+
+## Phase 2 status
+
+### Done in this slice
+
+- Firebase Admin bootstrap with safe degradation when credentials are missing (`src/lib/firebase-admin.ts`).
+- Firestore repositories for `articles`, `alerts`, and `briefings` (`src/lib/repositories/*`).
+- Sanctions ingestion at `/api/cron/ingest`: provider adapter (mock), canonical-URL SHA-256 deduplication, batched Firestore writes, keyword-based high-priority alerts.
+- Investor briefing generation at `/api/cron/briefings`: 24h sanctions article + alert window, briefing provider adapter (mock), Firestore persistence using the canonical `BriefingDocument` shape.
+- Firestore-first read APIs with mock fallback: `/api/briefing/[role]`, `/api/alerts`, `/api/news`.
+
+### Remaining for Phase 2
+
+- Real provider adapters for Brave Search, Serper, and MiniMax (currently mock-backed).
+- Remaining ingestion agents: PDVSA, market, JV tracker, social.
+- Briefings for the four non-investor roles.
+- Outbound delivery via Resend using stored briefings and role targeting.
+- Pricing enforcement and Stripe-based subscription gating across Free/Professional/Enterprise.
