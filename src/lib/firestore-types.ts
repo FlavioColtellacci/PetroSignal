@@ -28,8 +28,20 @@ export interface AlertRecord {
   createdAt: string;
 }
 
+export type BriefingProviderName = "minimax" | "fallback-mock";
+
+export interface BriefingProviderTelemetry {
+  provider: BriefingProviderName;
+  model?: string;
+  latencyMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  errorMessage?: string;
+}
+
 export interface BriefingRecord extends BriefingDocument {
   id: string;
   createdAt: string;
   updatedAt: string;
+  telemetry?: BriefingProviderTelemetry;
 }

@@ -43,7 +43,7 @@ export async function GET(request: Request) {
   ]);
 
   const provider = createBriefingProviderAdapter();
-  const briefingDocument = await provider.generate({
+  const { document: briefingDocument, telemetry } = await provider.generate({
     role: INVESTOR_ROLE,
     date: formatDate(now),
     articles,
@@ -59,6 +59,7 @@ export async function GET(request: Request) {
     generatedAt: briefingDocument.generatedAt,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
+    telemetry,
   };
 
   const persisted = await saveBriefing(briefingRecord);
@@ -70,5 +71,8 @@ export async function GET(request: Request) {
     alertsConsidered: alerts.length,
     firestoreEnabled: Boolean(getFirestoreDb()),
     persisted,
+    provider: telemetry.provider,
+    model: telemetry.model,
+    latencyMs: telemetry.latencyMs,
   });
 }

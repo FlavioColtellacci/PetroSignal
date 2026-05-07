@@ -18,6 +18,25 @@ Petroleum intelligence terminal built with Next.js App Router. The codebase now 
    ```
 4. Open [http://localhost:3000](http://localhost:3000).
 
+## Safe dev workflow (recommended)
+
+To keep RAM usage predictable on a 16GB machine:
+
+- `npm run dev` now includes two protections:
+  - blocks duplicate `next dev` processes for this repo
+  - limits Node memory to 4GB (`NODE_OPTIONS=--max-old-space-size=4096`)
+- If dev gets unstable or memory climbs unexpectedly:
+  ```bash
+  npm run dev:clean
+  npm run dev
+  ```
+- For a one-command clean restart:
+  ```bash
+  npm run dev:fresh
+  ```
+
+This avoids the most common cause of runaway RAM: multiple Next.js dev servers and stale `.next` cache state.
+
 ## Available routes
 
 - `/` landing overview
@@ -59,12 +78,14 @@ To populate `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY`, generate a servi
 
 These are pre-populated in `.env.example` for the development project.
 
-### Provider env vars (kept for upcoming live adapters)
+### Briefing provider env vars (MiniMax + fallback)
 
-- `MINIMAX_API_KEY`
-- `MINIMAX_MODEL`
+- `MINIMAX_API_KEY` — required for live MiniMax generation
+- `MINIMAX_MODEL` — defaults to `MiniMax-M2.7-highspeed`
 - `RESEND_API_KEY`
 - `BRIEFING_FROM_EMAIL`
+
+Investor briefing generation uses MiniMax via the Vercel AI SDK. If `MINIMAX_API_KEY` is unset or the MiniMax call fails after retries, cron falls back to the deterministic mock adapter and still persists the briefing to Firestore with telemetry tagged as `provider: "fallback-mock"`.
 
 ## Validation commands
 
@@ -87,12 +108,12 @@ curl -sS -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/
 - Firebase Admin bootstrap with safe degradation when credentials are missing (`src/lib/firebase-admin.ts`).
 - Firestore repositories for `articles`, `alerts`, and `briefings` (`src/lib/repositories/*`).
 - Sanctions ingestion at `/api/cron/ingest`: provider adapter (mock), canonical-URL SHA-256 deduplication, batched Firestore writes, keyword-based high-priority alerts.
-- Investor briefing generation at `/api/cron/briefings`: 24h sanctions article + alert window, briefing provider adapter (mock), Firestore persistence using the canonical `BriefingDocument` shape.
+- Investor briefing generation at `/api/cron/briefings`: 24h sanctions article + alert window, MiniMax generation via AI SDK with deterministic source merging, and automatic typed mock fallback with provider telemetry persisted in Firestore.
 - Firestore-first read APIs with mock fallback: `/api/briefing/[role]`, `/api/alerts`, `/api/news`.
 
 ### Remaining for Phase 2
 
-- Real provider adapters for Brave Search, Serper, and MiniMax (currently mock-backed).
+- Real provider adapters for Brave Search and Serper (MiniMax briefing is live with fallback).
 - Remaining ingestion agents: PDVSA, market, JV tracker, social.
 - Briefings for the four non-investor roles.
 - Outbound delivery via Resend using stored briefings and role targeting.
