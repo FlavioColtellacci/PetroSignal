@@ -2,7 +2,7 @@ import type { BriefingDocument } from "@/types/domain";
 
 export interface ArticleRecord {
   id: string;
-  agent: "sanctions";
+  agent: IngestionAgent;
   headline: string;
   summary: string;
   outlet: string;
@@ -13,6 +13,16 @@ export interface ArticleRecord {
   tags: string[];
   ingestedAt: string;
 }
+
+export const INGESTION_AGENTS = [
+  "sanctions",
+  "pdvsa",
+  "market",
+  "jv_tracker",
+  "social",
+] as const;
+
+export type IngestionAgent = (typeof INGESTION_AGENTS)[number];
 
 export interface AlertRecord {
   id: string;

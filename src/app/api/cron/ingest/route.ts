@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
-import type { AlertRecord, ArticleRecord } from "@/lib/firestore-types";
+import { INGESTION_AGENTS, type AlertRecord, type ArticleRecord } from "@/lib/firestore-types";
 import { getFirestoreDb } from "@/lib/firebase-admin";
 import { createSanctionsProviderAdapter } from "@/lib/providers/sanctions-provider";
 import { getArticleByCanonicalUrlHash, writeArticles } from "@/lib/repositories/articles-repository";
@@ -55,7 +55,13 @@ export async function GET(request: Request) {
   }
 
   const provider = createSanctionsProviderAdapter();
-  const providerItems = await provider.fetchLatest();
+  const providerItemGroups = await Promise.all(
+    INGESTION_AGENTS.map(async (agent) => ({
+      agent,
+      items: await provider.fetchLatest(agent),
+    })),
+  );
+  const providerItems = providerItemGroups.flatMap((group) => group.items);
 
   const articlesToWrite: ArticleRecord[] = [];
   const alertsToWrite: AlertRecord[] = [];
@@ -73,7 +79,7 @@ export async function GET(request: Request) {
     const articleId = buildArticleId(canonicalUrlHash);
     const article: ArticleRecord = {
       id: articleId,
-      agent: "sanctions",
+      agent: item.agent,
       headline: item.title,
       summary: item.summary,
       outlet: item.outlet,
@@ -86,7 +92,7 @@ export async function GET(request: Request) {
     };
     articlesToWrite.push(article);
 
-    if (shouldCreateHighPriorityAlert(item)) {
+    if (item.agent === "sanctions" && shouldCreateHighPriorityAlert(item)) {
       alertsToWrite.push({
         id: buildAlertId(articleId),
         title: `Sanctions signal: ${item.title}`,
@@ -109,6 +115,10 @@ export async function GET(request: Request) {
   return NextResponse.json({
     status: "ok",
     providerItems: providerItems.length,
+    providerItemsByAgent: providerItemGroups.map((group) => ({
+      agent: group.agent,
+      count: group.items.length,
+    })),
     firestoreEnabled: Boolean(getFirestoreDb()),
     insertedArticles: writtenArticles,
     insertedAlerts: writtenAlerts,

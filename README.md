@@ -1,6 +1,6 @@
 # PetroSignal
 
-Petroleum intelligence terminal built with Next.js App Router. The codebase now ships the Phase 2 vertical slice: a sanctions ingestion pipeline and an investor briefing generator backed by Firestore, with provider adapters mock-implemented until external API keys are wired in.
+Petroleum intelligence terminal built with Next.js App Router. The codebase now ships the Phase 2 vertical slice: multi-agent ingestion and role-based briefing generation backed by Firestore, with safe mock fallback when provider keys are missing.
 
 ## Local setup
 
@@ -82,6 +82,8 @@ These are pre-populated in `.env.example` for the development project.
 
 - `MINIMAX_API_KEY` — required for live MiniMax generation
 - `MINIMAX_MODEL` — defaults to `MiniMax-M2.7-highspeed`
+- `BRAVE_API_KEY` — optional, used first for ingestion search
+- `SERPER_API_KEY` — optional, used if Brave is unavailable/empty
 - `RESEND_API_KEY`
 - `BRIEFING_FROM_EMAIL`
 
@@ -107,14 +109,11 @@ curl -sS -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/
 
 - Firebase Admin bootstrap with safe degradation when credentials are missing (`src/lib/firebase-admin.ts`).
 - Firestore repositories for `articles`, `alerts`, and `briefings` (`src/lib/repositories/*`).
-- Sanctions ingestion at `/api/cron/ingest`: provider adapter (mock), canonical-URL SHA-256 deduplication, batched Firestore writes, keyword-based high-priority alerts.
-- Investor briefing generation at `/api/cron/briefings`: 24h sanctions article + alert window, MiniMax generation via AI SDK with deterministic source merging, and automatic typed mock fallback with provider telemetry persisted in Firestore.
+- Multi-agent ingestion at `/api/cron/ingest`: sanctions, PDVSA, market, JV tracker, and social agent paths with Brave/Serper providers (fallback to deterministic mock), canonical-URL SHA-256 deduplication, batched Firestore writes, and sanctions high-priority alerts.
+- Multi-role briefing generation at `/api/cron/briefings`: 24h sanctions article + alert window, MiniMax generation via AI SDK for all briefing roles, deterministic source merging, and automatic typed mock fallback with provider telemetry persisted in Firestore.
 - Firestore-first read APIs with mock fallback: `/api/briefing/[role]`, `/api/alerts`, `/api/news`.
 
 ### Remaining for Phase 2
 
-- Real provider adapters for Brave Search and Serper (MiniMax briefing is live with fallback).
-- Remaining ingestion agents: PDVSA, market, JV tracker, social.
-- Briefings for the four non-investor roles.
 - Outbound delivery via Resend using stored briefings and role targeting.
 - Pricing enforcement and Stripe-based subscription gating across Free/Professional/Enterprise.

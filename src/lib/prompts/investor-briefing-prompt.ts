@@ -8,13 +8,25 @@ export interface InvestorBriefingPromptInput {
   alerts: AlertRecord[];
 }
 
-export interface InvestorBriefingPrompt {
+export interface BriefingPrompt {
   system: string;
   user: string;
 }
 
-const INVESTOR_BRIEFING_SYSTEM_PROMPT = [
-  "You are a senior intelligence analyst writing a daily morning briefing for institutional investors with exposure to the Venezuelan petroleum sector.",
+const ROLE_BRIEFING_PERSONAS: Record<BriefingRole, string> = {
+  investor:
+    "You are a senior intelligence analyst writing a daily morning briefing for institutional investors with exposure to the Venezuelan petroleum sector.",
+  consultant:
+    "You are a senior strategy consultant producing an executive daily briefing for advisory teams serving Venezuelan petroleum clients.",
+  service_company:
+    "You are a commercial and operations analyst writing a daily briefing for oilfield service companies active in Venezuelan petroleum projects.",
+  compliance:
+    "You are a compliance intelligence specialist writing a daily briefing for legal, sanctions, and controls teams covering Venezuelan petroleum exposure.",
+  engineer:
+    "You are a petroleum operations analyst writing a daily briefing for engineering and field operations teams in Venezuelan petroleum assets.",
+};
+
+const BRIEFING_SYSTEM_PROMPT_SUFFIX = [
   "Tone: precise, factual, no speculation. Synthesize only from the provided articles and alerts; never invent data.",
   "",
   "OUTPUT REQUIREMENTS (strict):",
@@ -28,7 +40,7 @@ const INVESTOR_BRIEFING_SYSTEM_PROMPT = [
   "    ]",
   "  }",
   "- The `sections` array must have between 2 and 4 entries.",
-  "- Section labels should be short category headers (examples: 'Sanctions landscape', 'Risk signals', 'Market implications', 'Operational considerations').",
+  "- Section labels should be short category headers relevant to the target role.",
 ].join("\n");
 
 function renderArticles(articles: ArticleRecord[]): string {
@@ -70,9 +82,9 @@ function renderAlerts(alerts: AlertRecord[]): string {
     .join("\n\n");
 }
 
-export function buildInvestorBriefingPrompt(
+export function buildBriefingPrompt(
   input: InvestorBriefingPromptInput,
-): InvestorBriefingPrompt {
+): BriefingPrompt {
   const user = [
     "# Briefing Input",
     "",
@@ -87,7 +99,7 @@ export function buildInvestorBriefingPrompt(
   ].join("\n");
 
   return {
-    system: INVESTOR_BRIEFING_SYSTEM_PROMPT,
+    system: `${ROLE_BRIEFING_PERSONAS[input.role]}\n${BRIEFING_SYSTEM_PROMPT_SUFFIX}`,
     user,
   };
 }

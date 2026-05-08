@@ -6,9 +6,7 @@ import { createBriefingProviderAdapter } from "@/lib/providers/briefing-provider
 import { getRecentAlerts } from "@/lib/repositories/alerts-repository";
 import { getRecentArticlesByAgent } from "@/lib/repositories/articles-repository";
 import { saveBriefing } from "@/lib/repositories/briefings-repository";
-import type { BriefingRole } from "@/types/domain";
-
-const INVESTOR_ROLE: BriefingRole = "investor";
+import { BRIEFING_ROLES } from "@/types/domain";
 
 function readCronSecret(): string | null {
   const secret = process.env.CRON_SECRET?.trim();
@@ -43,36 +41,49 @@ export async function GET(request: Request) {
   ]);
 
   const provider = createBriefingProviderAdapter();
-  const { document: briefingDocument, telemetry } = await provider.generate({
-    role: INVESTOR_ROLE,
-    date: formatDate(now),
-    articles,
-    alerts,
-  });
+  const generated = await Promise.all(
+    BRIEFING_ROLES.map(async (role) => {
+      const { document: briefingDocument, telemetry } = await provider.generate({
+        role,
+        date: formatDate(now),
+        articles,
+        alerts,
+      });
 
-  const briefingRecord: BriefingRecord = {
-    id: `briefing-${INVESTOR_ROLE}-${briefingDocument.date}`,
-    role: briefingDocument.role,
-    date: briefingDocument.date,
-    sections: briefingDocument.sections,
-    sources: briefingDocument.sources,
-    generatedAt: briefingDocument.generatedAt,
-    createdAt: now.toISOString(),
-    updatedAt: now.toISOString(),
-    telemetry,
-  };
+      const briefingRecord: BriefingRecord = {
+        id: `briefing-${role}-${briefingDocument.date}`,
+        role: briefingDocument.role,
+        date: briefingDocument.date,
+        sections: briefingDocument.sections,
+        sources: briefingDocument.sources,
+        generatedAt: briefingDocument.generatedAt,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+        telemetry,
+      };
 
-  const persisted = await saveBriefing(briefingRecord);
+      const persisted = await saveBriefing(briefingRecord);
+      return {
+        role,
+        persisted,
+        telemetry,
+      };
+    }),
+  );
 
   return NextResponse.json({
     status: "ok",
-    role: INVESTOR_ROLE,
+    roles: generated.map((item) => item.role),
     articlesConsidered: articles.length,
     alertsConsidered: alerts.length,
     firestoreEnabled: Boolean(getFirestoreDb()),
-    persisted,
-    provider: telemetry.provider,
-    model: telemetry.model,
-    latencyMs: telemetry.latencyMs,
+    persisted: generated.every((item) => item.persisted),
+    results: generated.map((item) => ({
+      role: item.role,
+      persisted: item.persisted,
+      provider: item.telemetry.provider,
+      model: item.telemetry.model,
+      latencyMs: item.telemetry.latencyMs,
+    })),
   });
 }

@@ -2,7 +2,7 @@ import { generateText } from "ai";
 import { z } from "zod";
 import { minimaxOpenAI } from "vercel-minimax-ai-provider";
 
-import { buildInvestorBriefingPrompt } from "@/lib/prompts/investor-briefing-prompt";
+import { buildBriefingPrompt } from "@/lib/prompts/investor-briefing-prompt";
 import type {
   AlertRecord,
   ArticleRecord,
@@ -98,7 +98,7 @@ class MiniMaxBriefingProviderAdapter implements BriefingProviderAdapter {
   async generate(input: BriefingProviderInput): Promise<BriefingProviderResult> {
     const start = Date.now();
     const model = process.env.MINIMAX_MODEL ?? "MiniMax-M2.7";
-    const { system, user } = buildInvestorBriefingPrompt(input);
+    const { system, user } = buildBriefingPrompt(input);
 
     const { text, usage } = await generateText({
       model: minimaxOpenAI(model),
