@@ -76,7 +76,7 @@ export function LiveWire({ news, alerts, isLoading, error }: LiveWireProps) {
   const items = news && alerts ? buildItems(news, alerts) : []
 
   return (
-    <article className="flex min-h-[420px] flex-col border border-outline-variant bg-surface-container">
+    <article className="flex h-full min-h-0 flex-col border border-outline-variant bg-surface-container">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-outline-variant bg-surface-container px-container py-compact">
         <p className="font-heading text-xs uppercase tracking-[0.04em] text-muted-foreground">
           Live Wire

@@ -57,7 +57,7 @@ export function AgentStatusPanel({
   const list = agents ? normalizeAgents(agents) : []
 
   return (
-    <aside className="flex flex-col border border-outline-variant bg-surface-container">
+    <aside className="flex h-full min-h-0 flex-col border border-outline-variant bg-surface-container">
       <header className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container px-container py-compact">
         <p className="font-heading text-xs uppercase tracking-[0.04em] text-muted-foreground">
           Agent Status

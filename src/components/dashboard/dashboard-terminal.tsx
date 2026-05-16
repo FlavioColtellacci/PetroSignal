@@ -191,9 +191,8 @@ export function DashboardTerminal() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-dim px-container py-container text-foreground">
-      <section className="mx-auto flex min-h-[calc(100vh-24px)] w-full max-w-7xl flex-col border border-outline-variant bg-surface-container-low">
-        <header className="flex flex-wrap items-center justify-between gap-stack border-b border-outline-variant px-container py-compact">
+    <main className="flex min-h-screen w-full flex-col bg-surface-container-low text-foreground">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-stack border-b border-outline-variant px-container py-compact">
           <div>
             <p className="font-heading text-xs uppercase tracking-[0.04em] text-muted-foreground">
               PetroSignal Intelligence Terminal
@@ -227,43 +226,42 @@ export function DashboardTerminal() {
               {lastRefreshedAt ? `Updated ${lastRefreshedAt}` : nowLabel()}
             </span>
           </div>
-        </header>
+      </header>
 
-        <div className="space-y-gutter p-gutter">
-          <MetricCards
-            metrics={metricsState.data}
-            isLoading={metricsState.status === "loading"}
-            error={metricsState.error}
-          />
+      <div className="flex min-h-0 flex-1 flex-col gap-gutter p-gutter">
+        <MetricCards
+          metrics={metricsState.data}
+          isLoading={metricsState.status === "loading"}
+          error={metricsState.error}
+        />
 
-          <div className="grid gap-gutter lg:grid-cols-[2fr_1fr]">
-            <section className="grid gap-gutter">
-              <BriefingCard
-                role={role}
-                onRoleChange={handleRoleChange}
-                briefing={briefingState.data}
-                isLoading={briefingState.status === "loading"}
-                error={briefingState.error}
-                timezone={preferences.timezone}
-              />
-              <LiveWire
-                news={newsState.data}
-                alerts={alertsState.data}
-                isLoading={
-                  newsState.status === "loading" || alertsState.status === "loading"
-                }
-                error={newsState.error ?? alertsState.error}
-              />
-            </section>
-
-            <AgentStatusPanel
-              agents={agentsState.data}
-              isLoading={agentsState.status === "loading"}
-              error={agentsState.error}
+        <div className="grid min-h-0 flex-1 gap-gutter lg:grid-cols-[2fr_1fr]">
+          <section className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-gutter">
+            <BriefingCard
+              role={role}
+              onRoleChange={handleRoleChange}
+              briefing={briefingState.data}
+              isLoading={briefingState.status === "loading"}
+              error={briefingState.error}
+              timezone={preferences.timezone}
             />
-          </div>
+            <LiveWire
+              news={newsState.data}
+              alerts={alertsState.data}
+              isLoading={
+                newsState.status === "loading" || alertsState.status === "loading"
+              }
+              error={newsState.error ?? alertsState.error}
+            />
+          </section>
+
+          <AgentStatusPanel
+            agents={agentsState.data}
+            isLoading={agentsState.status === "loading"}
+            error={agentsState.error}
+          />
         </div>
-      </section>
+      </div>
     </main>
   )
 }
