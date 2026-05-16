@@ -47,6 +47,8 @@ export interface NewsItem {
   publishedAt: string;
   outlet: string;
   url: string;
+  agent?: "sanctions" | "pdvsa" | "market" | "jv_tracker" | "social";
+  tags?: string[];
 }
 
 export const AGENT_NAMES = [
@@ -77,4 +79,23 @@ export interface MetricSnapshot {
   delta: number;
   trend: MetricTrend;
   capturedAt: string;
+}
+
+export interface UserPreferences {
+  defaultRole: BriefingRole;
+  timezone: string;
+  onboardingCompleted: boolean;
+  alerts: {
+    severityFilter: AlertSeverity | "all";
+    windowFilter: "24h" | "7d" | "30d";
+    sortOrder: "newest" | "oldest";
+  };
+  news: {
+    sourceFilter: string;
+    agentFilter: string;
+    roleFocus: BriefingRole;
+  };
+  dashboard: {
+    role: BriefingRole;
+  };
 }

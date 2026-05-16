@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { IBM_Plex_Mono, Work_Sans } from "next/font/google";
+import { AuthProvider } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
 
 const workSans = Work_Sans({
@@ -32,7 +33,7 @@ export default function RootLayout({
       className={cn("font-sans", workSans.variable, ibmPlexMono.variable)}
     >
       <body className="min-h-screen bg-background text-foreground">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

@@ -10,6 +10,11 @@ const NAV_ITEMS = [
   { href: "/settings", label: "Settings" },
 ] as const
 
+const LEGAL_ITEMS = [
+  { href: "/privacy", label: "Privacy" },
+  { href: "/terms", label: "Terms" },
+] as const
+
 type TerminalShellProps = {
   title: string
   subtitle: string
@@ -41,6 +46,17 @@ export function TerminalShell({ title, subtitle, children }: TerminalShellProps)
           </nav>
         </header>
         <div className="flex-1 p-gutter">{children}</div>
+        <footer className="flex items-center justify-end gap-2 border-t border-outline-variant px-container py-compact">
+          {LEGAL_ITEMS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </footer>
       </section>
     </main>
   )

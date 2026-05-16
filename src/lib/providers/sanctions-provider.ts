@@ -1,4 +1,5 @@
 import type { IngestionAgent } from "@/lib/firestore-types";
+import { captureException } from "@/lib/monitoring";
 
 export interface IngestionProviderItem {
   agent: IngestionAgent;
@@ -13,6 +14,22 @@ export interface IngestionProviderItem {
 export interface IngestionProviderAdapter {
   fetchLatest(agent: IngestionAgent): Promise<IngestionProviderItem[]>;
 }
+
+const MIN_SUMMARY_LENGTH = 80;
+const BLOCKED_HOST_PATTERNS = [/example\.com$/i, /localhost$/i];
+const TRUSTED_OUTLET_KEYWORDS = [
+  "reuters",
+  "bloomberg",
+  "ap",
+  "financial times",
+  "wsj",
+  "argus",
+  "platts",
+  "s&p global",
+  "energy",
+  "oil",
+  "gas",
+];
 
 const AGENT_QUERIES: Record<IngestionAgent, string> = {
   sanctions: "Venezuela oil sanctions OFAC PDVSA",
@@ -70,6 +87,80 @@ class MockIngestionProviderAdapter implements IngestionProviderAdapter {
       },
     ];
   }
+}
+
+function normalizeText(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function sanitizePublishedAt(value: string | undefined): string {
+  if (!value) {
+    return new Date().toISOString();
+  }
+  const parsedMs = Date.parse(value);
+  return Number.isNaN(parsedMs) ? new Date().toISOString() : new Date(parsedMs).toISOString();
+}
+
+function scoreSourceQuality(item: IngestionProviderItem): number {
+  let score = 0;
+  const summaryLength = item.summary.trim().length;
+  if (summaryLength >= MIN_SUMMARY_LENGTH) {
+    score += 1;
+  }
+
+  const outlet = item.outlet.toLowerCase();
+  if (TRUSTED_OUTLET_KEYWORDS.some((keyword) => outlet.includes(keyword))) {
+    score += 2;
+  } else if (item.outlet.trim().length >= 4) {
+    score += 1;
+  }
+
+  try {
+    const hostname = new URL(item.url).hostname;
+    if (BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(hostname))) {
+      score -= 2;
+    } else if (hostname.includes(".")) {
+      score += 1;
+    }
+  } catch {
+    score -= 2;
+  }
+
+  return score;
+}
+
+function normalizeProviderItems(items: IngestionProviderItem[]): IngestionProviderItem[] {
+  const seen = new Set<string>();
+  const normalized: IngestionProviderItem[] = [];
+
+  for (const item of items) {
+    const clean: IngestionProviderItem = {
+      ...item,
+      title: normalizeText(item.title),
+      summary: normalizeText(item.summary),
+      outlet: normalizeText(item.outlet),
+      tags: Array.from(
+        new Set(item.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean)),
+      ),
+      publishedAt: sanitizePublishedAt(item.publishedAt),
+    };
+
+    if (clean.title.length < 12 || clean.summary.length < 40) {
+      continue;
+    }
+    if (scoreSourceQuality(clean) < 2) {
+      continue;
+    }
+
+    const dedupeKey = `${clean.url.toLowerCase()}::${clean.title.toLowerCase()}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    seen.add(dedupeKey);
+    normalized.push(clean);
+  }
+
+  return normalized;
 }
 
 class BraveIngestionProviderAdapter implements IngestionProviderAdapter {
@@ -152,6 +243,7 @@ class SerperIngestionProviderAdapter implements IngestionProviderAdapter {
         link?: string;
         source?: string;
         date?: string;
+        dateUtc?: string;
       }>;
     };
 
@@ -163,7 +255,7 @@ class SerperIngestionProviderAdapter implements IngestionProviderAdapter {
         title: item.title ?? "Untitled",
         summary: item.snippet ?? "No summary provided.",
         url: item.link ?? "",
-        publishedAt: now,
+        publishedAt: item.dateUtc ?? item.date ?? now,
         outlet: item.source ?? "Serper News",
         tags: AGENT_TAGS[agent],
       }));
@@ -186,12 +278,16 @@ class CompositeIngestionProviderAdapter implements IngestionProviderAdapter {
 
     if (this.braveAdapter) {
       try {
-        const braveItems = await this.braveAdapter.fetchLatest(agent);
+        const braveItems = normalizeProviderItems(await this.braveAdapter.fetchLatest(agent));
         if (braveItems.length > 0) {
           return braveItems;
         }
         errors.push("Brave returned no items");
       } catch (error) {
+        captureException(error, {
+          component: "sanctions-provider-brave",
+          details: { agent },
+        });
         errors.push(error instanceof Error ? error.message : "Brave failed");
       }
     } else {
@@ -200,20 +296,31 @@ class CompositeIngestionProviderAdapter implements IngestionProviderAdapter {
 
     if (this.serperAdapter) {
       try {
-        const serperItems = await this.serperAdapter.fetchLatest(agent);
+        const serperItems = normalizeProviderItems(await this.serperAdapter.fetchLatest(agent));
         if (serperItems.length > 0) {
           return serperItems;
         }
         errors.push("Serper returned no items");
       } catch (error) {
+        captureException(error, {
+          component: "sanctions-provider-serper",
+          details: { agent },
+        });
         errors.push(error instanceof Error ? error.message : "Serper failed");
       }
     } else {
       errors.push("SERPER_API_KEY not set");
     }
 
-    console.error(`[ingestion-provider] Falling back to mock for ${agent}`, errors.join(" | "));
-    return this.mockAdapter.fetchLatest(agent);
+    captureException(new Error("Ingestion provider fallback activated."), {
+      component: "sanctions-provider-fallback",
+      details: {
+        agent,
+        errorCount: errors.length,
+        errors: errors.join(" | "),
+      },
+    });
+    return normalizeProviderItems(await this.mockAdapter.fetchLatest(agent));
   }
 }
 

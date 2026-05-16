@@ -1,4 +1,4 @@
-import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
+import type { Query, QueryDocumentSnapshot } from "firebase-admin/firestore";
 
 import { getFirestoreDb } from "@/lib/firebase-admin";
 import type { BriefingRecord } from "@/lib/firestore-types";
@@ -43,4 +43,46 @@ export async function getLatestBriefingByRole(role: BriefingRole): Promise<Brief
   }
 
   return mapBriefing(doc);
+}
+
+export async function getBriefingsByRole(
+  role: BriefingRole,
+  options?: { limit?: number; sinceIso?: string },
+): Promise<BriefingRecord[]> {
+  const db = getFirestoreDb();
+  if (!db) {
+    return [];
+  }
+
+  let query: Query = db
+    .collection(BRIEFINGS_COLLECTION)
+    .where("role", "==", role)
+    .orderBy("generatedAt", "desc");
+
+  if (options?.sinceIso) {
+    query = query.where("generatedAt", ">=", options.sinceIso);
+  }
+
+  const snapshot = await query.limit(options?.limit ?? 14).get();
+  return snapshot.docs.map(mapBriefing);
+}
+
+export async function getBriefingById(briefingId: string): Promise<BriefingRecord | null> {
+  const db = getFirestoreDb();
+  if (!db) {
+    return null;
+  }
+
+  const snapshot = await db.collection(BRIEFINGS_COLLECTION).doc(briefingId).get();
+  if (!snapshot.exists) {
+    return null;
+  }
+  const data = snapshot.data() as Omit<BriefingRecord, "id"> | undefined;
+  if (!data) {
+    return null;
+  }
+  return {
+    id: snapshot.id,
+    ...data,
+  };
 }

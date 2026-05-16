@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import type {
   AgentStatus,
@@ -10,6 +10,7 @@ import type {
   MetricSnapshot,
   NewsItem,
 } from "@/types/domain"
+import { useUserPreferences } from "@/lib/user-preferences-client"
 
 import { AgentStatusPanel } from "./agent-status-panel"
 import { BriefingCard } from "./briefing-card"
@@ -21,18 +22,33 @@ type AsyncState<T> =
   | { status: "success"; data: T; error: null }
   | { status: "error"; data: null; error: string }
 
+type RuntimeMode = "live-firestore" | "fallback-mock" | "unknown"
+
+const POLL_INTERVAL_MS = 60_000
+
 const initialAsync = <T,>(): AsyncState<T> => ({
   status: "loading",
   data: null,
   error: null,
 })
 
-async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+async function fetchJson<T>(
+  url: string,
+  signal?: AbortSignal,
+): Promise<{ data: T; runtimeMode: RuntimeMode }> {
   const response = await fetch(url, { signal, cache: "no-store" })
   if (!response.ok) {
     throw new Error(`Request failed (${response.status})`)
   }
-  return response.json() as Promise<T>
+  const runtimeModeHeader = response.headers.get("x-petrosignal-runtime-mode")
+  const runtimeMode: RuntimeMode =
+    runtimeModeHeader === "live-firestore" || runtimeModeHeader === "fallback-mock"
+      ? runtimeModeHeader
+      : "unknown"
+  return {
+    data: (await response.json()) as T,
+    runtimeMode,
+  }
 }
 
 function nowLabel() {
@@ -46,6 +62,7 @@ function nowLabel() {
 }
 
 export function DashboardTerminal() {
+  const { preferences, loading: preferencesLoading, savePreferences } = useUserPreferences()
   const [role, setRole] = useState<BriefingRole>("investor")
   const [briefingState, setBriefingState] =
     useState<AsyncState<BriefingDocument>>(initialAsync())
@@ -57,45 +74,79 @@ export function DashboardTerminal() {
     useState<AsyncState<AlertItem[]>>(initialAsync())
   const [metricsState, setMetricsState] =
     useState<AsyncState<MetricSnapshot[]>>(initialAsync())
+  const [runtimeModes, setRuntimeModes] = useState<{
+    briefing: RuntimeMode
+    agents: RuntimeMode
+    news: RuntimeMode
+    alerts: RuntimeMode
+    metrics: RuntimeMode
+  }>({
+    briefing: "unknown",
+    agents: "unknown",
+    news: "unknown",
+    alerts: "unknown",
+    metrics: "unknown",
+  })
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null)
+  const [refreshGeneration, setRefreshGeneration] = useState(0)
 
   useEffect(() => {
-    const controller = new AbortController()
-    setBriefingState(initialAsync())
-    fetchJson<BriefingDocument>(`/api/briefing/${role}`, controller.signal)
-      .then((payload) =>
-        setBriefingState({ status: "success", data: payload, error: null }),
-      )
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return
-        const message =
-          error instanceof Error ? error.message : "Unable to load briefing."
-        setBriefingState({ status: "error", data: null, error: message })
-      })
+    if (!preferencesLoading) {
+      setRole(preferences.dashboard.role)
+    }
+  }, [preferences.dashboard.role, preferencesLoading])
 
-    return () => controller.abort()
-  }, [role])
+  const loadBriefing = useCallback(
+    async (signal: AbortSignal, activeRole: BriefingRole) => {
+      setBriefingState(initialAsync())
+      const payload = await fetchJson<BriefingDocument>(`/api/briefing/${activeRole}`, signal)
+      setBriefingState({ status: "success", data: payload.data, error: null })
+      setRuntimeModes((current) => ({ ...current, briefing: payload.runtimeMode }))
+    },
+    [],
+  )
 
-  useEffect(() => {
-    const controller = new AbortController()
-
-    Promise.all([
-      fetchJson<AgentStatus[]>("/api/agents/status", controller.signal),
-      fetchJson<NewsItem[]>("/api/news", controller.signal),
-      fetchJson<AlertItem[]>("/api/alerts", controller.signal),
-      fetchJson<MetricSnapshot[]>("/api/metrics", controller.signal),
+  const loadFeeds = useCallback(async (signal: AbortSignal) => {
+    const [agents, news, alerts, metrics] = await Promise.all([
+      fetchJson<AgentStatus[]>("/api/agents/status", signal),
+      fetchJson<NewsItem[]>("/api/news", signal),
+      fetchJson<AlertItem[]>("/api/alerts", signal),
+      fetchJson<MetricSnapshot[]>("/api/metrics", signal),
     ])
-      .then(([agents, news, alerts, metrics]) => {
-        setAgentsState({ status: "success", data: agents, error: null })
-        setNewsState({ status: "success", data: news, error: null })
-        setAlertsState({ status: "success", data: alerts, error: null })
-        setMetricsState({ status: "success", data: metrics, error: null })
-      })
+    setAgentsState({ status: "success", data: agents.data, error: null })
+    setNewsState({ status: "success", data: news.data, error: null })
+    setAlertsState({ status: "success", data: alerts.data, error: null })
+    setMetricsState({ status: "success", data: metrics.data, error: null })
+    setRuntimeModes((current) => ({
+      ...current,
+      agents: agents.runtimeMode,
+      news: news.runtimeMode,
+      alerts: alerts.runtimeMode,
+      metrics: metrics.runtimeMode,
+    }))
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    loadBriefing(controller.signal, role).catch((error: unknown) => {
+      if (error instanceof DOMException && error.name === "AbortError") return
+      const message =
+        error instanceof Error ? error.message : "Unable to load briefing."
+      setBriefingState({ status: "error", data: null, error: message })
+    })
+    return () => controller.abort()
+  }, [loadBriefing, role, refreshGeneration])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    loadFeeds(controller.signal)
+      .then(() => setLastRefreshedAt(nowLabel()))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return
         const message =
-          error instanceof Error
-            ? error.message
-            : "Unable to load dashboard feeds."
+          error instanceof Error ? error.message : "Unable to load dashboard feeds."
         setAgentsState({ status: "error", data: null, error: message })
         setNewsState({ status: "error", data: null, error: message })
         setAlertsState({ status: "error", data: null, error: message })
@@ -103,7 +154,41 @@ export function DashboardTerminal() {
       })
 
     return () => controller.abort()
+  }, [loadFeeds, refreshGeneration])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setRefreshGeneration((value) => value + 1)
+    }, POLL_INTERVAL_MS)
+    return () => window.clearInterval(interval)
   }, [])
+
+  async function handleManualRefresh() {
+    setRefreshing(true)
+    const controller = new AbortController()
+    try {
+      await Promise.all([loadBriefing(controller.signal, role), loadFeeds(controller.signal)])
+      setLastRefreshedAt(nowLabel())
+    } catch (error: unknown) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        console.error("Manual dashboard refresh failed.", error)
+      }
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  function handleRoleChange(nextRole: BriefingRole) {
+    setRole(nextRole)
+    void savePreferences({
+      ...preferences,
+      defaultRole: nextRole,
+      dashboard: { role: nextRole },
+      news: { ...preferences.news, roleFocus: nextRole },
+    }).catch((error) => {
+      console.error("Failed to persist dashboard role preference.", error)
+    })
+  }
 
   return (
     <main className="min-h-screen bg-surface-dim px-container py-container text-foreground">
@@ -117,13 +202,29 @@ export function DashboardTerminal() {
               Daily Operations Dashboard
             </h1>
           </div>
-          <div className="flex items-center gap-stack">
+          <div className="flex flex-wrap items-center gap-stack">
+            <button
+              type="button"
+              onClick={() => void handleManualRefresh()}
+              disabled={refreshing}
+              className="border border-outline-variant bg-surface-container px-2 py-1 font-heading text-[11px] uppercase tracking-[0.04em] transition hover:bg-surface-container-high disabled:opacity-70"
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
             <span className="inline-flex items-center gap-2 border border-outline-variant px-2 py-[2px] font-mono text-[11px] text-muted-foreground">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-              Live · mock feeds
+              {runtimeModes.news === "unknown" ||
+              runtimeModes.alerts === "unknown" ||
+              runtimeModes.metrics === "unknown"
+                ? "Runtime mode · pending"
+                : runtimeModes.news === "fallback-mock" ||
+                    runtimeModes.alerts === "fallback-mock" ||
+                    runtimeModes.metrics === "fallback-mock"
+                  ? "Fallback mode · mock-assisted"
+                  : "Live mode · Firestore-backed"}
             </span>
             <span className="font-mono text-xs text-muted-foreground">
-              {nowLabel()}
+              {lastRefreshedAt ? `Updated ${lastRefreshedAt}` : nowLabel()}
             </span>
           </div>
         </header>
@@ -139,17 +240,17 @@ export function DashboardTerminal() {
             <section className="grid gap-gutter">
               <BriefingCard
                 role={role}
-                onRoleChange={setRole}
+                onRoleChange={handleRoleChange}
                 briefing={briefingState.data}
                 isLoading={briefingState.status === "loading"}
                 error={briefingState.error}
+                timezone={preferences.timezone}
               />
               <LiveWire
                 news={newsState.data}
                 alerts={alertsState.data}
                 isLoading={
-                  newsState.status === "loading" ||
-                  alertsState.status === "loading"
+                  newsState.status === "loading" || alertsState.status === "loading"
                 }
                 error={newsState.error ?? alertsState.error}
               />

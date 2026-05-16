@@ -1,42 +1,103 @@
-import Link from "next/link"
+import Link from "next/link";
 
-import { TerminalShell } from "@/components/layout/terminal-shell"
+import { TerminalShell } from "@/components/layout/terminal-shell";
+
+const AUDIENCE = [
+  {
+    title: "Investors & portfolio teams",
+    body: "Track sanctions, export flows, and benchmark spreads with a daily investor-grade briefing.",
+  },
+  {
+    title: "Advisors & operators",
+    body: "Monitor PDVSA production signals, JV activity, and terminal throughput in one terminal view.",
+  },
+  {
+    title: "Compliance & engineering",
+    body: "Surface high-severity alerts and role-specific context without rebuilding your own news stack.",
+  },
+] as const;
+
+const CAPABILITIES = [
+  "Five specialized monitoring agents ingest Venezuela petroleum intelligence daily.",
+  "Role-based briefings tailored to investor, consultant, compliance, and operations lenses.",
+  "Live alerts, news wire, and agent health on a single operations dashboard.",
+] as const;
 
 export default function HomePage() {
   return (
     <TerminalShell
-      title="PetroSignal Landing"
-      subtitle="Production-oriented foundation for petroleum intelligence workflows."
+      title="Venezuela petroleum intelligence, delivered daily"
+      subtitle="PetroSignal turns regional monitoring agents into role-based briefings, alerts, and a terminal-grade dashboard for teams tracking Venezuelan oil markets."
     >
-      <section className="grid gap-gutter lg:grid-cols-[2fr_1fr]">
-        <article className="border border-outline-variant bg-surface-container p-container">
-          <h2 className="font-heading text-xs uppercase tracking-[0.04em] text-primary">
-            Platform Overview
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            PetroSignal combines regional monitoring agents, role-based daily briefing output,
-            and high-signal market alerts in a terminal-grade operating interface.
+      <section className="grid gap-gutter lg:grid-cols-[3fr_2fr]">
+        <article className="space-y-4 border border-outline-variant bg-surface-container p-container">
+          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            Stop stitching together scattered headlines. PetroSignal aggregates sanctions, PDVSA,
+            market, JV, and social signals into structured daily briefings—with severity-ranked
+            alerts when conditions shift.
           </p>
-          <div className="mt-4">
+          <div className="flex flex-wrap gap-3">
             <Link
-              href="/dashboard"
-              className="inline-block border border-primary bg-primary px-3 py-2 font-heading text-xs uppercase tracking-[0.04em] text-primary-foreground transition hover:brightness-110"
+              href="/login?mode=sign-up&next=/onboarding"
+              className="inline-block border border-primary bg-primary px-4 py-2 font-heading text-xs uppercase tracking-[0.04em] text-primary-foreground transition hover:brightness-110"
             >
-              Open Dashboard
+              Start free beta
+            </Link>
+            <Link
+              href="/login?next=/dashboard"
+              className="inline-block border border-outline-variant bg-surface-container-high px-4 py-2 font-heading text-xs uppercase tracking-[0.04em] transition hover:bg-surface-container-highest"
+            >
+              Sign in
             </Link>
           </div>
+          <p className="font-mono text-[11px] text-muted-foreground">
+            Free during beta · No credit card required
+          </p>
         </article>
+
         <article className="border border-outline-variant bg-surface-container p-container">
           <h2 className="font-heading text-xs uppercase tracking-[0.04em] text-primary">
-            Build Status
+            Built for
           </h2>
-          <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-            <li>Next.js App Router foundation enabled</li>
-            <li>Internal mock APIs feeding dashboard cards</li>
-            <li>Role-based briefing contract wired end-to-end</li>
+          <ul className="mt-3 space-y-3">
+            {AUDIENCE.map((item) => (
+              <li key={item.title}>
+                <p className="font-heading text-xs uppercase tracking-[0.04em] text-foreground">
+                  {item.title}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{item.body}</p>
+              </li>
+            ))}
           </ul>
         </article>
       </section>
+
+      <section className="mt-gutter border border-outline-variant bg-surface-container p-container">
+        <h2 className="font-heading text-xs uppercase tracking-[0.04em] text-primary">
+          What you get
+        </h2>
+        <ul className="mt-3 grid gap-3 md:grid-cols-3">
+          {CAPABILITIES.map((item) => (
+            <li key={item} className="text-sm text-muted-foreground">
+              {item}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href="/pricing"
+            className="font-mono text-xs uppercase tracking-[0.04em] text-primary underline underline-offset-4 hover:text-foreground"
+          >
+            View pricing
+          </Link>
+          <Link
+            href="/dashboard"
+            className="font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            Open dashboard
+          </Link>
+        </div>
+      </section>
     </TerminalShell>
-  )
+  );
 }
