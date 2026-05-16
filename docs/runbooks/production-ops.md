@@ -8,7 +8,7 @@ Symptoms:
 
 Actions:
 1. Open the index creation URL from logs.
-2. Add the same index to `firestore.indexes.json`.
+2. Add the same index to `firebase/firestore.indexes.json`.
 3. Deploy indexes:
    - `firebase deploy --only firestore:indexes`
 4. Re-run affected API or cron route.

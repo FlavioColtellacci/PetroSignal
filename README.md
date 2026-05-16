@@ -37,6 +37,17 @@ To keep RAM usage predictable on a 16GB machine:
 
 This avoids the most common cause of runaway RAM: multiple Next.js dev servers and stale `.next` cache state.
 
+## Project structure
+
+```text
+config/           Tooling (Vitest, Playwright, Sentry)
+docs/             Design tokens and ops runbooks
+firebase/         Firestore rules and indexes
+scripts/          Dev utilities
+src/              Next.js app, API routes, components, lib
+tests/e2e/        Playwright smoke tests
+```
+
 ## Available routes
 
 - `/` landing overview
@@ -175,7 +186,7 @@ curl -sS -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/
 - Firebase Admin bootstrap with safe degradation when credentials are missing (`src/lib/firebase-admin.ts`).
 - Firestore repositories for `articles`, `alerts`, and `briefings` (`src/lib/repositories/*`).
 - Multi-agent ingestion at `/api/cron/ingest`: sanctions, PDVSA, market, JV tracker, and social agent paths with Brave/Serper providers (fallback to deterministic mock), canonical-URL SHA-256 deduplication, batched Firestore writes, and multi-agent weighted alert scoring.
-- Multi-role briefing generation at `/api/cron/briefings`: 24h sanctions article + alert window, MiniMax generation via AI SDK for all briefing roles, deterministic source merging, and automatic typed mock fallback with provider telemetry persisted in Firestore.
+- Multi-role briefing generation at `/api/cron/briefings`: 24h multi-agent article window + alerts, MiniMax generation via AI SDK for all briefing roles, deterministic source merging, and automatic typed mock fallback with provider telemetry persisted in Firestore.
 - Firestore-first read APIs with mock fallback: `/api/briefing/[role]`, `/api/alerts`, `/api/news`.
 - Retention and governance foundations: weekly retention cron, audit event persistence, locked-down Firestore stubs for future organizations and API keys.
 
