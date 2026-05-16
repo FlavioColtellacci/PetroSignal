@@ -56,7 +56,7 @@ This avoids the most common cause of runaway RAM: multiple Next.js dev servers a
   - `/api/cron/briefings` -> `0 10 * * 1-5` (weekdays, 10:00 UTC)
   - `/api/cron/retention` -> `30 10 * * 6` (weekly, Saturday 10:30 UTC)
 - Both routes require `Authorization: Bearer <CRON_SECRET>`.
-- In this slice, provider adapters are mock-backed by default (sanctions ingest + briefing generation), while persistence reads/writes are Firestore-backed when Firebase Admin credentials are present.
+- Ingestion uses Brave/Serper when `BRAVE_API_KEY` and/or `SERPER_API_KEY` are set (mock fallback otherwise). Briefings use MiniMax when `MINIMAX_API_KEY` is set (typed mock fallback on failure). Persistence reads/writes are Firestore-backed when Firebase Admin credentials are present.
 - If Firebase credentials are missing, read APIs gracefully fallback to in-memory mock data and cron routes report `firestoreEnabled: false`.
 - Briefing date derivation is timezone-aware via `BRIEFING_TIMEZONE` (defaults to `UTC`).
 

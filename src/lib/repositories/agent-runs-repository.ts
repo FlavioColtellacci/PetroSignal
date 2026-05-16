@@ -49,10 +49,10 @@ export async function startAgentRun(input: StartAgentRunInput): Promise<string |
     startedAt,
     itemsFetched: input.itemsFetched ?? 0,
     errors: input.errors ?? [],
-    agent: input.agent,
-    role: input.role,
     createdAt: nowIso,
     updatedAt: nowIso,
+    ...(input.agent !== undefined ? { agent: input.agent } : {}),
+    ...(input.role !== undefined ? { role: input.role } : {}),
   };
 
   await docRef.set(payload);
